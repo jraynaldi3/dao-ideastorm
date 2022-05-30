@@ -24,7 +24,7 @@ contract IdeaStormFactory is Ownable {
 
     function createIdeaStorm(string memory _name, address _linkedNFT, uint _nftType, uint _nftId) external {
         uint newId = ids.current();
-        address DAOAddress = address(new IdeaStorm{salt: keccak256(abi.encodePacked(_linkedNFT, _nftType, _nftId)) }(_linkedNFT, _nftType, _nftId));
+        address DAOAddress = address(new IdeaStorm{salt: keccak256(abi.encodePacked(_linkedNFT, _nftType, _nftId)) }(_linkedNFT, _nftType, _nftId,msg.sender));
 
         DAOs.push(DAO({
             id: newId,
@@ -32,6 +32,8 @@ contract IdeaStormFactory is Ownable {
             contractAddress:DAOAddress,
             name: _name
         }));
+        ids.increment();
+        emit DAOCreated(newId, msg.sender, DAOAddress, _name);
     }
 
     function getAllDAOs() external view returns(DAO[] memory){

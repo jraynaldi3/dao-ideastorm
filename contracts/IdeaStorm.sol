@@ -52,25 +52,26 @@ contract IdeaStorm is Ownable {
     Topic[] topics;
     mapping(uint=>mapping(uint=>mapping(address=>Vote))) public voteOfAddress;
     mapping(uint=> Idea[]) public ideasOfTopic;
+    
 
     modifier onlyHolder(){
-    //    if (nftType == NFT.NFT1155){
-    //        require(IERC1155(linkedNFT).balanceOf(msg.sender, nftId)>0,"not a NFT Holder");
-    //    } 
-    //    if (nftType == NFT.NFT721){
-    //        require(IERC721(linkedNFT).balanceOf(msg.sender)>0, "Not a NFT Holder");
-    //    }
+        if (nftType == NFT.NFT1155){
+            require(IERC1155(linkedNFT).balanceOf(msg.sender, nftId)>0,"not a NFT Holder");
+        } 
+        if (nftType == NFT.NFT721){
+            require(IERC721(linkedNFT).balanceOf(msg.sender)>0, "Not a NFT Holder");
+        }
         _;
     }
 
     constructor (
         address _linkedNFT,
         uint _nftType,
-        uint _nftId
+        uint _nftId,
+        address creator
     ){
-        linkedNFT = _linkedNFT;
-        nftType = NFT(_nftType);
-        nftId = _nftId;
+        changeLinkedNFT(_linkedNFT,_nftType,_nftId);
+        transferOwnership(creator);
     }
 
     function submitTopic(string memory title, string memory description) external onlyOwner(){
@@ -123,7 +124,7 @@ contract IdeaStorm is Ownable {
     }
 
     function upvoteIdea(uint topicId, uint ideaId) external onlyHolder(){
-        Idea storage idea = getIdeaById(topicId, ideaId);
+        Idea storage idea = ideasOfTopic[topicId][ideaId];
         if(voteOfAddress[topicId][ideaId][msg.sender]==Vote.Upvote){
             revert AlreadyVote();
         }
@@ -136,7 +137,7 @@ contract IdeaStorm is Ownable {
     }
 
     function downvoteIdea(uint topicId, uint ideaId) external onlyHolder(){
-        Idea storage idea = getIdeaById(topicId, ideaId);
+        Idea storage idea = ideasOfTopic[topicId][ideaId];
         if(voteOfAddress[topicId][ideaId][msg.sender]==Vote.Downvote){
             revert AlreadyVote();
         }
@@ -148,7 +149,7 @@ contract IdeaStorm is Ownable {
         emit IdeaDownvoted(topicId, ideaId, msg.sender);
     }
 
-    function changeLinkedNFT(address _nftAddress, uint _nftId, uint _nftType) external onlyOwner(){
+    function changeLinkedNFT(address _nftAddress, uint _nftId, uint _nftType) public onlyOwner(){
         linkedNFT = _nftAddress;
         nftId = _nftId;
         nftType = NFT(_nftType);
