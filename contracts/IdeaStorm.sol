@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
-
 contract IdeaStorm is Ownable {
 
     event TopicSubmitted(uint id, string title);
+    event TopicClosed(uint id);
     event IdeaSubmitted(uint topicId, uint ideaId, address submitter, string idea);
     event IdeaUpvoted(uint topicId, uint ideaId, address voter);
     event IdeaDownvoted(uint topicId, uint ideaId, address voter);
@@ -32,6 +32,7 @@ contract IdeaStorm is Ownable {
         uint id;
         string title;
         string description;
+        bool isClosed;
     }
 
     enum Vote{
@@ -64,6 +65,12 @@ contract IdeaStorm is Ownable {
         _;
     }
 
+    modifier openTopic(uint id){
+        Topic memory topic = getTopicById(id);
+        require(topic.isClosed ==false,"IdeaStorm: Topic Already Closed");
+        _;
+    }
+
     constructor (
         address _linkedNFT,
         uint _nftType,
@@ -79,13 +86,20 @@ contract IdeaStorm is Ownable {
         topics.push(Topic({
             id: id,
             title: title,
-            description: description
+            description: description,
+            isClosed:false
         }));
         topicIds.increment();
         emit TopicSubmitted(id, title);
     }
 
-    function getTopicById(uint _id) internal view returns(Topic storage) {
+    function closeTopic(uint id) external onlyOwner(){
+        Topic storage topic = topics[id];
+        topic.isClosed = true;
+        emit TopicClosed(id);
+    }
+
+    function getTopicById(uint _id) internal view returns(Topic memory) {
         uint index;
         for(uint i = 0; i < topics.length; i++){
             if(topics[i].id == _id){
@@ -93,13 +107,13 @@ contract IdeaStorm is Ownable {
                 break;
             }
         }
-        Topic storage topic = topics[index];
+        Topic memory topic = topics[index];
         return topic;
     }
 
-    function submitIdea(uint topicId,string memory _idea) external onlyHolder(){
+    function submitIdea(uint topicId,string memory _idea) external onlyHolder() openTopic(topicId){
+        
         uint newIdeaId = ideaIds[topicId].current();
-
         ideasOfTopic[topicId].push(Idea({
             id: newIdeaId,
             submitter: msg.sender,
@@ -111,11 +125,11 @@ contract IdeaStorm is Ownable {
         emit IdeaSubmitted(topicId, newIdeaId, msg.sender, _idea);
     }
 
-    function getIdeaById(uint topicId, uint ideaId) internal view returns(Idea storage){
+    function getIdeaById(uint topicId, uint ideaId) external view returns(Idea memory){
         uint index;
         for(uint i = 0; i > ideasOfTopic[topicId].length;i++){
             if(ideasOfTopic[topicId][i].id == ideaId){
-                index==i;
+                index = i;
                 break;
             }
         }
@@ -123,7 +137,7 @@ contract IdeaStorm is Ownable {
         return idea;
     }
 
-    function upvoteIdea(uint topicId, uint ideaId) external onlyHolder(){
+    function upvoteIdea(uint topicId, uint ideaId) external onlyHolder() openTopic(topicId){
         Idea storage idea = ideasOfTopic[topicId][ideaId];
         if(voteOfAddress[topicId][ideaId][msg.sender]==Vote.Upvote){
             revert AlreadyVote();
@@ -136,7 +150,7 @@ contract IdeaStorm is Ownable {
         emit IdeaUpvoted(topicId, ideaId, msg.sender);
     }
 
-    function downvoteIdea(uint topicId, uint ideaId) external onlyHolder(){
+    function downvoteIdea(uint topicId, uint ideaId) external onlyHolder() openTopic(topicId){
         Idea storage idea = ideasOfTopic[topicId][ideaId];
         if(voteOfAddress[topicId][ideaId][msg.sender]==Vote.Downvote){
             revert AlreadyVote();
@@ -154,6 +168,8 @@ contract IdeaStorm is Ownable {
         nftId = _nftId;
         nftType = NFT(_nftType);
     }
+
+    
 
     function getAllTopics() external view returns(Topic[] memory){
         return topics;
